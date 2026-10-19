@@ -3,59 +3,58 @@ package com.example.myapplication.ui.theme
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
-// ---------- Marca: Violeta amatista ----------
-val Violet = Color(0xFF9600FF)        // Alpha, Red, Green, Blue
-val VioletDark = Color(0xFF7000BD)
-val VioletLight = Color(0xFFBA61FF)
-val BackGround = Color(0xFFFFFFFF)
+// =====================================================
+//  MUSA · Santuario de las reliquias
+//  Paleta mística: azul Sheikah, oro Trifuerza y verde Kokiri
+// =====================================================
 
-// ---------- Paleta "joyas de museo" (tonos intensos pero sobrios) ----------
-val Magenta = Color(0xFFC2185B)       // granate vivo, para destacar
-val Marigold = Color(0xFFE0A526)      // dorado cálido: favoritos, estrellas, "destacado"
-val MarigoldBright = Color(0xFFF2C14E)
+// ---------- Dark (identidad principal: templo de noche) ----------
+val SheikahCyan = Color(0xFF4FD1E8)           // brillo azul de las runas
+val OnSheikahCyan = Color(0xFF00363D)
+val SheikahContainerDark = Color(0xFF0E4A55)
+val OnSheikahContainerDark = Color(0xFFC2F4FB)
 
-// ---------- Light ----------
-val VioletContainer = Color(0xFFEBD6FF)
-val OnVioletContainer = Color(0xFF2B0050)
+val TriforceGold = Color(0xFFE6C25A)          // oro antiguo
+val TriforceGoldBright = Color(0xFFF6DC8B)
+val OnTriforceGold = Color(0xFF3A2D00)
+val GoldContainerDark = Color(0xFF5A4500)
+val OnGoldContainerDark = Color(0xFFFFE9A8)
 
-val Peacock = Color(0xFF007C89)       // azul pavo real
-val PeacockContainer = Color(0xFFB5EEF5)
-val OnPeacockContainer = Color(0xFF001F25)
+val KorokGreen = Color(0xFF8FD694)            // bosque sagrado
+val OnKorokGreen = Color(0xFF0A3814)
+val KorokContainerDark = Color(0xFF1F5130)
+val OnKorokContainerDark = Color(0xFFB0F2B5)
 
-val Terracotta = Color(0xFFB4381F)    // cerámica / arcilla
-val TerracottaContainer = Color(0xFFFFDBD1)
-val OnTerracottaContainer = Color(0xFF3A0A00)
+val TempleNight = Color(0xFF0B1418)           // fondo: piedra de templo
+val TempleStone = Color(0xFF16292E)           // tarjetas
+val MistText = Color(0xFFE8EFE6)
+val MistTextVariant = Color(0xFFB5C9CC)
+val OutlineDark = Color(0xFF6F8F94)
+val OutlineDarkSoft = Color(0xFF2C4A50)
 
-val Ivory = Color(0xFFFBF7FF)         // fondo marfil con un toque lavanda
-val Ink = Color(0xFF1B1620)
-val LavenderMist = Color(0xFFEFE6F7)  // superficies de tarjetas
-val InkVariant = Color(0xFF4B4256)
-val OutlineLight = Color(0xFF7D7387)
-val OutlineSoft = Color(0xFFCFC3DA)
-val InverseSurfaceLight = Color(0xFF312B38)
-val InverseOnSurfaceLight = Color(0xFFF5EEFA)
+// ---------- Light (pergamino) ----------
+val DeepTeal = Color(0xFF0B6B7A)
+val TealContainer = Color(0xFFB8EDF5)
+val OnTealContainer = Color(0xFF00252B)
 
-// ---------- Dark ----------
-val VioletInDark = Color(0xFFDDB7FF)
-val OnVioletInDark = Color(0xFF4A0080)
-val VioletContainerDark = Color(0xFF6A00B0)
-val OnVioletContainerDark = Color(0xFFF1DDFF)
+val AncientGold = Color(0xFF8A6A00)
+val GoldContainer = Color(0xFFFFE08A)
+val OnGoldContainer = Color(0xFF2B2000)
 
-val PeacockInDark = Color(0xFF4FD8EB)
-val OnPeacockInDark = Color(0xFF00363D)
-val PeacockContainerDark = Color(0xFF004F58)
+val Forest = Color(0xFF2E6B3A)
+val ForestContainer = Color(0xFFB5F0BA)
+val OnForestContainer = Color(0xFF002108)
 
-val TerracottaInDark = Color(0xFFFFB59F)
-val OnTerracottaInDark = Color(0xFF5F1500)
-val TerracottaContainerDark = Color(0xFF862200)
+val Parchment = Color(0xFFF6EFD9)
+val ParchmentSurface = Color(0xFFFBF6E6)
+val ParchmentVariant = Color(0xFFE9DFC0)
+val InkGreen = Color(0xFF1E2A2C)
+val InkGreenVariant = Color(0xFF4A5A55)
+val OutlineLight = Color(0xFF7A8A80)
+val OutlineLightSoft = Color(0xFFCFC49E)
 
-val Aubergine = Color(0xFF120D18)     // fondo oscuro berenjena
-val NightText = Color(0xFFEBE0F2)
-val NightSurfaceVariant = Color(0xFF4B4256)
-val NightTextVariant = Color(0xFFCFC3DA)
-val OutlineDark = Color(0xFF988EA3)
-
-// ---------- Degradados listos para usar (cabeceras, banners, botones destacados) ----------
-val VioletGradient = Brush.linearGradient(listOf(VioletDark, Violet, Magenta))
-val GalleryGradient = Brush.verticalGradient(listOf(Violet, VioletDark, Color(0xFF3A0066)))
-val GoldGradient = Brush.linearGradient(listOf(Marigold, MarigoldBright))
+// ---------- Degradados ----------
+val SheikahGradient = Brush.verticalGradient(
+    listOf(Color(0xFF0E4A55), Color(0xFF0B2A33), TempleNight)
+)
+val GoldGradient = Brush.linearGradient(listOf(TriforceGold, TriforceGoldBright))

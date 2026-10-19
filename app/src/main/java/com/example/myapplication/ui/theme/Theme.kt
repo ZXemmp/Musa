@@ -1,7 +1,6 @@
 package com.example.myapplication.ui.theme
 
 import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -12,68 +11,69 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val LightColorScheme = lightColorScheme(
-    // Violeta: identidad de la app
-    primary = Violet,
+    // Azul profundo: acciones principales
+    primary = DeepTeal,
     onPrimary = Color.White,
-    primaryContainer = VioletContainer,
-    onPrimaryContainer = OnVioletContainer,
-    inversePrimary = VioletInDark,
+    primaryContainer = TealContainer,
+    onPrimaryContainer = OnTealContainer,
 
-    // Azul pavo real: acciones secundarias, chips, filtros
-    secondary = Peacock,
+    // Oro antiguo: títulos, detalles y calificaciones
+    secondary = AncientGold,
     onSecondary = Color.White,
-    secondaryContainer = PeacockContainer,
-    onSecondaryContainer = OnPeacockContainer,
+    secondaryContainer = GoldContainer,
+    onSecondaryContainer = OnGoldContainer,
 
-    // Terracota: llamadas de atención, exposiciones temporales
-    tertiary = Terracotta,
+    // Verde bosque: naturaleza y etiquetas
+    tertiary = Forest,
     onTertiary = Color.White,
-    tertiaryContainer = TerracottaContainer,
-    onTertiaryContainer = OnTerracottaContainer,
+    tertiaryContainer = ForestContainer,
+    onTertiaryContainer = OnForestContainer,
 
-    background = Ivory,
-    onBackground = Ink,
-    surface = Ivory,
-    onSurface = Ink,
-    surfaceVariant = LavenderMist,
-    onSurfaceVariant = InkVariant,
+    background = Parchment,
+    onBackground = InkGreen,
+    surface = ParchmentSurface,
+    onSurface = InkGreen,
+    surfaceVariant = ParchmentVariant,
+    onSurfaceVariant = InkGreenVariant,
     outline = OutlineLight,
-    outlineVariant = OutlineSoft,
-    inverseSurface = InverseSurfaceLight,
-    inverseOnSurface = InverseOnSurfaceLight
+    outlineVariant = OutlineLightSoft
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = VioletInDark,
-    onPrimary = OnVioletInDark,
-    primaryContainer = VioletContainerDark,
-    onPrimaryContainer = OnVioletContainerDark,
-    inversePrimary = Violet,
+    // Azul Sheikah: acciones principales
+    primary = SheikahCyan,
+    onPrimary = OnSheikahCyan,
+    primaryContainer = SheikahContainerDark,
+    onPrimaryContainer = OnSheikahContainerDark,
 
-    secondary = PeacockInDark,
-    onSecondary = OnPeacockInDark,
-    secondaryContainer = PeacockContainerDark,
-    onSecondaryContainer = PeacockContainer,
+    // Oro Trifuerza: títulos, detalles y calificaciones
+    secondary = TriforceGold,
+    onSecondary = OnTriforceGold,
+    secondaryContainer = GoldContainerDark,
+    onSecondaryContainer = OnGoldContainerDark,
 
-    tertiary = TerracottaInDark,
-    onTertiary = OnTerracottaInDark,
-    tertiaryContainer = TerracottaContainerDark,
-    onTertiaryContainer = TerracottaContainer,
+    // Verde Kokiri: naturaleza y etiquetas
+    tertiary = KorokGreen,
+    onTertiary = OnKorokGreen,
+    tertiaryContainer = KorokContainerDark,
+    onTertiaryContainer = OnKorokContainerDark,
 
-    background = Aubergine,
-    onBackground = NightText,
-    surface = Aubergine,
-    onSurface = NightText,
-    surfaceVariant = NightSurfaceVariant,
-    onSurfaceVariant = NightTextVariant,
+    background = TempleNight,
+    onBackground = MistText,
+    surface = TempleNight,
+    onSurface = MistText,
+    surfaceVariant = TempleStone,
+    onSurfaceVariant = MistTextVariant,
     outline = OutlineDark,
-    outlineVariant = NightSurfaceVariant
+    outlineVariant = OutlineDarkSoft
 )
 
 @Composable
 fun MyApplicationTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Desactivado por defecto para conservar la paleta de la marca.
+    // La identidad de Musa es "templo de noche": se fuerza el tema oscuro.
+    // Para seguir el tema del teléfono usa: isSystemInDarkTheme()
+    darkTheme: Boolean = true,
+    // Desactivado para conservar la paleta de la marca.
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
