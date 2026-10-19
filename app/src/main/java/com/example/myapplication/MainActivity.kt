@@ -21,8 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,6 +44,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.example.myapplication.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
@@ -71,10 +74,17 @@ data class Exhibicion(
     val sala: String,
     val id: Int
 )
+
 data class Category(
     val emoji: String,
     val name: String
 )
+
+object Routes {
+    const val HOME = "inicio"
+    const val CART = "carrito"
+    const val PROFILE = "perfil"
+}
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -88,6 +98,10 @@ fun MuseoApp() {
     var cartQuantities by remember {
         mutableStateOf<Map<Int, Int>>(emptyMap())
     }
+
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
     // NOTA: las exhibiciones 4 a 9 reutilizan las imágenes existentes.
     // Cámbialas por tus propias imágenes en res/drawable cuando las tengas.
@@ -167,10 +181,10 @@ fun MuseoApp() {
     )
 
     val categories = listOf(
-        Category("\uD83C\uDFFA","Historia y arqueología"),
-        Category("\uD83C\uDFA8","Arte y cultura"),
-        Category("\uD83D\uDD2C","Ciencia y tecnología"),
-        Category("\uD83C\uDF3F","Naturaleza y biodiversidad")
+        Category("\uD83C\uDFFA", "Historia y arqueología"),
+        Category("\uD83C\uDFA8", "Arte y cultura"),
+        Category("\uD83D\uDD2C", "Ciencia y tecnología"),
+        Category("\uD83C\uDF3F", "Naturaleza y biodiversidad")
     )
 
     val filteredExhibiciones = exhibiciones.filter { exhibicion ->
@@ -178,6 +192,18 @@ fun MuseoApp() {
             searchQuery,
             ignoreCase = true
         )
+    }
+
+    fun navigateTo(route: String) {
+        navController.navigate(route) {
+            popUpTo(
+                navController.graph.findStartDestination().id
+            ) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
     }
 
     fun increaseQuantity(exhibicionId: Int) {
@@ -204,7 +230,7 @@ fun MuseoApp() {
 
 
     Scaffold(
-        topBar ={
+        topBar = {
             TopAppBar(
                 title = {
                     Text("\uD83C\uDFDB\uFE0F Musa")
@@ -214,8 +240,10 @@ fun MuseoApp() {
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
-                    selected = true,
-                    onClick = {},
+                    selected = currentRoute == Routes.HOME,
+                    onClick = {
+                        navigateTo(Routes.HOME)
+                    },
                     icon = {
                         Text("🏠")
                     },
@@ -224,8 +252,10 @@ fun MuseoApp() {
                     }
                 )
                 NavigationBarItem(
-                    selected = false,
-                    onClick = {},
+                    selected = currentRoute == Routes.CART,
+                    onClick = {
+                        navigateTo(Routes.CART)
+                    },
                     icon = {
                         Text("🛒")
                     },
@@ -234,8 +264,10 @@ fun MuseoApp() {
                     }
                 )
                 NavigationBarItem(
-                    selected = false,
-                    onClick = {},
+                    selected = currentRoute == Routes.PROFILE,
+                    onClick = {
+                        navigateTo(Routes.PROFILE)
+                    },
                     icon = {
                         Text("👤")
                     },
@@ -249,99 +281,133 @@ fun MuseoApp() {
 
     ) { innerPading ->
 
-        Column(
+        NavHost(
+            navController = navController,
+            startDestination = Routes.HOME,
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
                 .padding(innerPading)
-                .padding(horizontal = 16.dp)
         ) {
 
-            Spacer(modifier = Modifier.height(16.dp))
+            // VISTA DE HOME
+            composable(Routes.HOME) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp)
+                ) {
 
-            Text(
-                text = "¡Hola!👋",
-                style = MaterialTheme.typography.headlineSmall
-            )
-            Text(
-                text = "Descubre nuestras colecciones",
-                style = MaterialTheme.typography.titleMedium
-            )
+                    Spacer(modifier = Modifier.height(16.dp))
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Busqueda
-
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { newText ->
-                    searchQuery = newText
-                },
-                label = { Text("Buscar exhibiciones") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            //Categorías
-
-            Text(
-                text = "Categorías",
-                style = MaterialTheme.typography.titleLarge
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            LazyRow (
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ){
-                items(categories){ category ->
-                    CategoryBadge(
-                        category = category
+                    Text(
+                        text = "¡Hola!👋",
+                        style = MaterialTheme.typography.headlineSmall
                     )
+                    Text(
+                        text = "Descubre nuestras colecciones",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Busqueda
+
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { newText ->
+                            searchQuery = newText
+                        },
+                        label = { Text("Buscar exhibiciones") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    //Categorías
+
+                    Text(
+                        text = "Categorías",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(categories) { category ->
+                            CategoryBadge(
+                                category = category
+                            )
+                        }
+                    }
+
+                    //Exhibiciones
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Text(
+                        text = "Exhibiciones Destacadas",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        if (filteredExhibiciones.isEmpty()) {
+                            item {
+                                Text(
+                                    text = "No se encontraron Exhibiciones",
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        } else {
+                            items(filteredExhibiciones) { exhibicion ->
+                                val quantity = cartQuantities[exhibicion.id] ?: 0
+
+                                ExhibicionCard(
+                                    exhibicion = exhibicion,
+                                    quantity = quantity,
+                                    onIncrease = {
+                                        increaseQuantity(exhibicionId = exhibicion.id)
+                                    },
+                                    onDecrease = {
+                                        decreaseQuantity(exhibicionId = exhibicion.id)
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
-            //Exhibiciones
+            // VISTA DE CARRITO
+            composable(Routes.CART) {
+                CartScreen()
+            }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "Exhibiciones Destacadas",
-                style = MaterialTheme.typography.titleLarge
-            )
-
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                if (filteredExhibiciones.isEmpty()){
-                    item {
-                        Text(
-                            text = "No se encontraron Exhibiciones",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
-                } else {
-                    items(filteredExhibiciones) { exhibicion ->
-                        val quantity = cartQuantities[exhibicion.id] ?: 0
-
-                        ExhibicionCard(
-                            exhibicion = exhibicion,
-                            quantity = quantity,
-                            onIncrease = {
-                                increaseQuantity(exhibicionId = exhibicion.id)
-                            },
-                            onDecrease = {
-                                decreaseQuantity(exhibicionId = exhibicion.id)
-                            }
-                        )
-                    }
-                }
+            // VISTA DE PERFIL
+            composable(Routes.PROFILE) {
+                ProfileScreen()
             }
         }
+    }
+}
+
+@Composable
+fun CartScreen() {
+    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        Text("CARRITO")
+    }
+}
+
+@Composable
+fun ProfileScreen() {
+    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        Text("PERFIL")
     }
 }
 
@@ -349,7 +415,10 @@ fun MuseoApp() {
 Si la cantidad es 0, Muestra agregar
 Al presionar agregar, la cantidad pasa a 1
 Cuando la cantidad es mayor que 0, aparece - y +
-Al presionar
+Al presionar +, la cantidad aumenta
+Al presionar -, la cantidad disminuye
+Cuando llega a 0, vuelve a aparecer agregar
+En la barra inferior se ve la suma de las cantidades de todas las exhibiciones
  */
 
 @Composable
@@ -366,7 +435,7 @@ fun ExhibicionCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Box (
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(140.dp)
@@ -383,8 +452,10 @@ fun ExhibicionCard(
                 )
 
                 Card(
-                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
-                ){
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                ) {
                     Text(
                         text = "Nuevo",
                         modifier = Modifier.padding(
@@ -460,12 +531,12 @@ fun ExhibicionCard(
 }
 
 @Composable
-fun CategoryBadge(category: Category){
+fun CategoryBadge(category: Category) {
     Card {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
-        ){
+        ) {
             Text(
                 text = category.emoji
             )

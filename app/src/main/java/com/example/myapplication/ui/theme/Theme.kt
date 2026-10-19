@@ -1,6 +1,5 @@
 package com.example.myapplication.ui.theme
 
-import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -9,35 +8,73 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+private val LightColorScheme = lightColorScheme(
+    // Violeta: identidad de la app
+    primary = Violet,
+    onPrimary = Color.White,
+    primaryContainer = VioletContainer,
+    onPrimaryContainer = OnVioletContainer,
+    inversePrimary = VioletInDark,
+
+    // Azul pavo real: acciones secundarias, chips, filtros
+    secondary = Peacock,
+    onSecondary = Color.White,
+    secondaryContainer = PeacockContainer,
+    onSecondaryContainer = OnPeacockContainer,
+
+    // Terracota: llamadas de atención, exposiciones temporales
+    tertiary = Terracotta,
+    onTertiary = Color.White,
+    tertiaryContainer = TerracottaContainer,
+    onTertiaryContainer = OnTerracottaContainer,
+
+    background = Ivory,
+    onBackground = Ink,
+    surface = Ivory,
+    onSurface = Ink,
+    surfaceVariant = LavenderMist,
+    onSurfaceVariant = InkVariant,
+    outline = OutlineLight,
+    outlineVariant = OutlineSoft,
+    inverseSurface = InverseSurfaceLight,
+    inverseOnSurface = InverseOnSurfaceLight
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+private val DarkColorScheme = darkColorScheme(
+    primary = VioletInDark,
+    onPrimary = OnVioletInDark,
+    primaryContainer = VioletContainerDark,
+    onPrimaryContainer = OnVioletContainerDark,
+    inversePrimary = Violet,
 
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+    secondary = PeacockInDark,
+    onSecondary = OnPeacockInDark,
+    secondaryContainer = PeacockContainerDark,
+    onSecondaryContainer = PeacockContainer,
+
+    tertiary = TerracottaInDark,
+    onTertiary = OnTerracottaInDark,
+    tertiaryContainer = TerracottaContainerDark,
+    onTertiaryContainer = TerracottaContainer,
+
+    background = Aubergine,
+    onBackground = NightText,
+    surface = Aubergine,
+    onSurface = NightText,
+    surfaceVariant = NightSurfaceVariant,
+    onSurfaceVariant = NightTextVariant,
+    outline = OutlineDark,
+    outlineVariant = NightSurfaceVariant
 )
 
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    // Desactivado por defecto para conservar la paleta de la marca.
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -45,7 +82,6 @@ fun MyApplicationTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
