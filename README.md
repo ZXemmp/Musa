@@ -53,8 +53,6 @@ El visitante elige un horario con cupos disponibles (hay uno agotado), define cu
 
 ## 5. Capturas de pantalla
 
-> Reemplaza estas rutas por tus capturas (carpeta `docs/screenshots/`).
-
 | Inicio | Explorar | Ficha de la obra |
 |:---:|:---:|:---:|
 | ![Inicio](docs/screenshots/inicio.png) | ![Explorar](docs/screenshots/explorar.png) | ![Ficha](docs/screenshots/ficha.png) |
