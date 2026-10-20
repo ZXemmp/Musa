@@ -4,7 +4,7 @@ Aplicación móvil para Android desarrollada con **Kotlin** y **Jetpack Compose*
 
 ## 1. Negocio
 
-**Musa** es un museo que reúne pintura, escultura, arqueología y cultura popular del Caribe colombiano y del mundo. Su identidad visual es mística e inspirada en la estética de fantasía de *The Legend of Zelda*: piedra de templo, azul Sheikah, oro antiguo y tipografía con serifa.
+**Musa** es un museo que reúne pintura, escultura y arqueología del mundo. Su identidad visual es mística e inspirada en la estética de fantasía de *The Legend of Zelda*: piedra de templo, azul Sheikah, oro antiguo y tipografía con serif.
 
 ## 2. Objetivo de la aplicación
 
