@@ -10,6 +10,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -83,12 +84,21 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-data class Exhibicion(
+// =====================================================
+//  MODELOS DE DATOS
+// =====================================================
+
+// Una obra del museo con toda la información para acompañar al visitante
+data class Obra(
     @DrawableRes
     val imagen: Int,
-    val name: String,
-    val description: String,
-    val rating: Double,
+    val titulo: String,
+    val autor: String,
+    val epoca: String,
+    val tecnica: String,
+    val categoria: String,
+    val contexto: String,
+    val curiosidad: String,
     val sala: String,
     val id: Int
 )
@@ -98,10 +108,18 @@ data class Category(
     val name: String
 )
 
+// Un turno de visita con cupos disponibles
+data class Horario(
+    val hora: String,
+    val cupos: Int
+)
+
 object Routes {
     const val HOME = "inicio"
-    const val EXHIBITIONS = "exhibiciones"
-    const val VISIT = "mi_visita"
+    const val EXPLORE = "explorar"
+    const val FAVORITES = "favoritas"
+    const val BOOKING = "reservar"
+    const val DETAIL = "detalle"
 }
 
 
@@ -109,116 +127,166 @@ object Routes {
 @Composable
 fun MuseoApp() {
 
+    // ---------- ESTADO ----------
+
     var searchQuery by remember {
         mutableStateOf("")
     }
 
-    // id de exhibición -> cantidad de entradas
-    var cartQuantities by remember {
-        mutableStateOf<Map<Int, Int>>(emptyMap())
+    // null = todas las categorías
+    var categoriaSeleccionada by remember {
+        mutableStateOf<String?>(null)
     }
+
+    // ids de las obras marcadas como favoritas
+    var favoritos by remember {
+        mutableStateOf<Set<Int>>(emptySet())
+    }
+
+    // obra que se está viendo en la pantalla de detalle
+    var obraSeleccionadaId by remember {
+        mutableStateOf<Int?>(null)
+    }
+
+    // reserva
+    var horarioSeleccionado by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    var visitantes by remember {
+        mutableStateOf(1)
+    }
+
+    var reservaConfirmada by remember {
+        mutableStateOf(false)
+    }
+
+    // ---------- NAVEGACIÓN ----------
 
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // NOTA: las exhibiciones 4 a 9 reutilizan las imágenes existentes.
-    // Cámbialas por tus propias imágenes en res/drawable cuando las tengas.
-    val exhibiciones = listOf(
-        Exhibicion(
-            imagen = R.drawable.precolombina,
-            name = "Orfebrería Precolombina",
-            description = "Piezas de oro y cerámica de las culturas del Caribe colombiano.",
-            rating = 4.7,
+    // ---------- DATOS ----------
+
+    val obras = listOf(
+        Obra(
+            imagen = R.drawable.noche_estrellada,
+            titulo = "La noche estrellada",
+            autor = "Vincent van Gogh",
+            epoca = "1889 · Postimpresionismo",
+            tecnica = "Óleo sobre lienzo",
+            categoria = "Pintura",
+            contexto = "Van Gogh la pintó en junio de 1889, mientras estaba internado voluntariamente en un asilo de Saint-Rémy-de-Provence, en Francia. La vista parte de la ventana de su habitación, pero el cielo en espiral y el pueblo nacen de su memoria y de su emoción más que de la realidad.",
+            curiosidad = "El pueblo del primer plano no existía tal como aparece: Van Gogh lo inventó. Y aunque el cuadro es nocturno, lo pintó de día, en su cuarto de trabajo, recordando el cielo.",
             sala = "Sala 1",
             id = 1
         ),
-        Exhibicion(
-            imagen = R.drawable.carnaval,
-            name = "Memoria del Carnaval",
-            description = "Trajes, máscaras y fotografías históricas de la fiesta popular.",
-            rating = 4.8,
-            sala = "Sala 2",
+        Obra(
+            imagen = R.drawable.gioconda,
+            titulo = "La Gioconda (Mona Lisa)",
+            autor = "Leonardo da Vinci",
+            epoca = "c. 1503–1519 · Renacimiento italiano",
+            tecnica = "Óleo sobre tabla de álamo",
+            categoria = "Pintura",
+            contexto = "Se cree que retrata a Lisa Gherardini, esposa de un comerciante de seda de Florencia. Leonardo trabajó en ella durante años y la llevó consigo a Francia, donde hoy forma parte de las colecciones del Museo del Louvre.",
+            curiosidad = "Fue robada en 1911 y estuvo desaparecida más de dos años; el escándalo la hizo famosa en todo el mundo. Su sonrisa difusa se logra con el sfumato: capas finísimas de pintura sin contornos marcados.",
+            sala = "Sala 1",
             id = 2
         ),
-        Exhibicion(
-            imagen = R.drawable.artemoderno,
-            name = "Arte Moderno Latinoamericano",
-            description = "Pintura y escultura del siglo XX de artistas de la región.",
-            rating = 4.4,
-            sala = "Sala 3",
+        Obra(
+            imagen = R.drawable.el_pensador,
+            titulo = "El pensador",
+            autor = "Auguste Rodin",
+            epoca = "Concebida en 1880 · Escultura moderna",
+            tecnica = "Bronce fundido",
+            categoria = "Escultura",
+            contexto = "Rodin la imaginó como la figura central de La puerta del Infierno, un portal inspirado en La divina comedia de Dante. Al principio representaba al poeta meditando frente al abismo; con el tiempo se convirtió en una obra independiente.",
+            curiosidad = "Existen numerosos vaciados en bronce en museos y plazas de todo el mundo, así que una misma obra puede estar en muchos lugares a la vez.",
+            sala = "Sala 2",
             id = 3
         ),
-        Exhibicion(
-            imagen = R.drawable.precolombina,
-            name = "Cerámica Ancestral",
-            description = "Vasijas y figuras elaboradas por comunidades indígenas hace siglos.",
-            rating = 4.5,
-            sala = "Sala 4",
+        Obra(
+            imagen = R.drawable.venus_de_milo,
+            titulo = "Venus de Milo",
+            autor = "Alejandro de Antioquía (atribuida)",
+            epoca = "c. 130–100 a. C. · Período helenístico",
+            tecnica = "Mármol de Paros",
+            categoria = "Escultura",
+            contexto = "Fue hallada en 1820 por un campesino en la isla griega de Milos. Poco después llegó a Francia y desde entonces se exhibe en el Louvre. Probablemente representa a Afrodita, la diosa del amor.",
+            curiosidad = "Nunca se encontraron sus brazos. Hay muchas teorías sobre qué sostenían, como una manzana o su propio vestido, pero sigue siendo un misterio.",
+            sala = "Sala 2",
             id = 4
         ),
-        Exhibicion(
-            imagen = R.drawable.carnaval,
-            name = "Música y Tradición",
-            description = "Instrumentos tradicionales y ritmos que marcaron la identidad cultural.",
-            rating = 4.6,
-            sala = "Sala 5",
+        Obra(
+            imagen = R.drawable.mascara_tutankamon,
+            titulo = "Máscara de Tutankamón",
+            autor = "Artesanos del antiguo Egipto",
+            epoca = "c. 1323 a. C. · Reino Nuevo",
+            tecnica = "Oro con incrustaciones de lapislázuli y otras piedras",
+            categoria = "Arqueología",
+            contexto = "Cubría el rostro de la momia del joven faraón Tutankamón. Su tumba, en el Valle de los Reyes, fue descubierta en 1922 por el arqueólogo Howard Carter y es uno de los hallazgos más importantes de la egiptología.",
+            curiosidad = "Pesa unos 10 kilos y la tumba que la protegía permaneció casi intacta durante más de 3.000 años.",
+            sala = "Sala 3",
             id = 5
         ),
-        Exhibicion(
-            imagen = R.drawable.artemoderno,
-            name = "Fotografía Contemporánea",
-            description = "Una mirada actual a la vida urbana a través de lentes locales.",
-            rating = 4.3,
-            sala = "Sala 6",
+        Obra(
+            imagen = R.drawable.poporo_quimbaya,
+            titulo = "Poporo Quimbaya",
+            autor = "Orfebres de la cultura Quimbaya",
+            epoca = "c. 500–1000 d. C. · Colombia precolombina",
+            tecnica = "Oro fundido a la cera perdida",
+            categoria = "Arqueología",
+            contexto = "Los quimbayas habitaron la región central de Colombia, en el valle del río Cauca. El poporo era un recipiente para guardar la cal que se mezclaba con hojas de coca en ceremonias y rituales, por eso se fabricaba con tanto cuidado.",
+            curiosidad = "Se hacía con la técnica de la cera perdida: el orfebre modelaba la pieza en cera, la cubría de arcilla y, al calentarla, el oro fundido ocupaba el lugar de la cera.",
+            sala = "Sala 3",
             id = 6
-        ),
-        Exhibicion(
-            imagen = R.drawable.precolombina,
-            name = "Biodiversidad del Caribe",
-            description = "Especies de flora y fauna de los ecosistemas costeros y selváticos.",
-            rating = 4.9,
-            sala = "Sala 7",
-            id = 7
-        ),
-        Exhibicion(
-            imagen = R.drawable.carnaval,
-            name = "Ciencia Interactiva",
-            description = "Experimentos y módulos para descubrir la física y la tecnología.",
-            rating = 4.2,
-            sala = "Sala 8",
-            id = 8
-        ),
-        Exhibicion(
-            imagen = R.drawable.artemoderno,
-            name = "Escultura al Aire Libre",
-            description = "Obras monumentales de artistas nacionales en los jardines del museo.",
-            rating = 4.6,
-            sala = "Sala 9",
-            id = 9
         )
     )
 
     val categories = listOf(
-        Category("\uD83C\uDFFA", "Historia y arqueología"),
-        Category("\uD83C\uDFA8", "Arte y cultura"),
-        Category("\uD83D\uDD2C", "Ciencia y tecnología"),
-        Category("\uD83C\uDF3F", "Naturaleza y biodiversidad")
+        Category("\uD83C\uDFA8", "Pintura"),
+        Category("\uD83D\uDDFF", "Escultura"),
+        Category("\uD83C\uDFFA", "Arqueología"),
+        Category("\uD83C\uDFAD", "Cultura popular")
     )
 
-    val filteredExhibiciones = exhibiciones.filter { exhibicion ->
-        exhibicion.name.contains(
-            searchQuery,
-            ignoreCase = true
-        )
+    val horarios = listOf(
+        Horario("9:00 a. m.", 12),
+        Horario("10:30 a. m.", 8),
+        Horario("12:00 m.", 0),
+        Horario("2:00 p. m.", 15),
+        Horario("3:30 p. m.", 6),
+        Horario("5:00 p. m.", 10)
+    )
+
+    // Curiosidad que se muestra en el inicio
+    val obraDelDia = remember { obras.random() }
+
+    // Búsqueda por título o autor + filtro por categoría
+    val obrasFiltradas = obras.filter { obra ->
+        val coincideBusqueda =
+            obra.titulo.contains(searchQuery, ignoreCase = true) ||
+                    obra.autor.contains(searchQuery, ignoreCase = true)
+
+        val coincideCategoria =
+            categoriaSeleccionada == null || obra.categoria == categoriaSeleccionada
+
+        coincideBusqueda && coincideCategoria
     }
 
-    // Las 4 exhibiciones mejor calificadas, para el inicio
-    val destacadas = exhibiciones
-        .sortedByDescending { it.rating }
-        .take(4)
+    val obrasFavoritas = obras.filter { obra ->
+        obra.id in favoritos
+    }
+
+    // ---------- FUNCIONES ----------
 
     fun navigateTo(route: String) {
+        // Si estamos en una ficha, primero la cerramos
+        if (currentRoute == Routes.DETAIL) {
+            navController.popBackStack()
+        }
+
         navController.navigate(route) {
             popUpTo(
                 navController.graph.findStartDestination().id
@@ -230,28 +298,51 @@ fun MuseoApp() {
         }
     }
 
-    fun increaseQuantity(exhibicionId: Int) {
-        val currentlyQuantity = cartQuantities[exhibicionId] ?: 0
-
-        cartQuantities = cartQuantities + (
-                exhibicionId to (currentlyQuantity + 1)
-                )
-    }
-
-    fun decreaseQuantity(exhibicionId: Int) {
-        val currentlyQuantity = cartQuantities[exhibicionId] ?: 0
-
-        if (currentlyQuantity > 1) {
-            cartQuantities = cartQuantities + (
-                    exhibicionId to (currentlyQuantity - 1)
-                    )
-        } else {
-            cartQuantities = cartQuantities - exhibicionId
+    fun openObra(obraId: Int) {
+        obraSeleccionadaId = obraId
+        navController.navigate(Routes.DETAIL) {
+            launchSingleTop = true
         }
     }
 
-    val cartCount = cartQuantities.values.sum()
+    fun toggleFavorito(obraId: Int) {
+        favoritos = if (obraId in favoritos) {
+            favoritos - obraId
+        } else {
+            favoritos + obraId
+        }
+    }
 
+    fun seleccionarHorario(hora: String) {
+        horarioSeleccionado = hora
+
+        // Si ya había más visitantes que cupos, se ajusta
+        val cupos = horarios.first { it.hora == hora }.cupos
+        if (visitantes > cupos) {
+            visitantes = cupos
+        }
+    }
+
+    fun aumentarVisitantes() {
+        val cupos = horarios.find { it.hora == horarioSeleccionado }?.cupos ?: 0
+        if (visitantes < cupos) {
+            visitantes += 1
+        }
+    }
+
+    fun disminuirVisitantes() {
+        if (visitantes > 1) {
+            visitantes -= 1
+        }
+    }
+
+    fun cancelarReserva() {
+        reservaConfirmada = false
+        horarioSeleccionado = null
+        visitantes = 1
+    }
+
+    // ---------- INTERFAZ ----------
 
     Scaffold(
         topBar = {
@@ -289,28 +380,41 @@ fun MuseoApp() {
                     colors = itemColors
                 )
                 NavigationBarItem(
-                    selected = currentRoute == Routes.EXHIBITIONS,
+                    selected = currentRoute == Routes.EXPLORE,
                     onClick = {
-                        navigateTo(Routes.EXHIBITIONS)
+                        navigateTo(Routes.EXPLORE)
                     },
                     icon = {
                         Text("\uD83C\uDFFA")
                     },
                     label = {
-                        Text("Exhibiciones")
+                        Text("Explorar")
                     },
                     colors = itemColors
                 )
                 NavigationBarItem(
-                    selected = currentRoute == Routes.VISIT,
+                    selected = currentRoute == Routes.FAVORITES,
                     onClick = {
-                        navigateTo(Routes.VISIT)
+                        navigateTo(Routes.FAVORITES)
                     },
                     icon = {
-                        Text("\uD83E\uDDED")
+                        Text("\uD83D\uDC8E")
                     },
                     label = {
-                        Text("Mi visita ($cartCount)")
+                        Text("Favoritas (${favoritos.size})")
+                    },
+                    colors = itemColors
+                )
+                NavigationBarItem(
+                    selected = currentRoute == Routes.BOOKING,
+                    onClick = {
+                        navigateTo(Routes.BOOKING)
+                    },
+                    icon = {
+                        Text("\uD83C\uDF9F\uFE0F")
+                    },
+                    label = {
+                        Text("Reservar")
                     },
                     colors = itemColors
                 )
@@ -329,50 +433,110 @@ fun MuseoApp() {
         ) {
 
             // PANTALLA 1: INICIO
-
             composable(Routes.HOME) {
                 HomeScreen(
                     categories = categories,
-                    destacadas = destacadas,
+                    obras = obras,
+                    obraDelDia = obraDelDia,
+                    horarioReservado = if (reservaConfirmada) horarioSeleccionado else null,
+                    visitantes = visitantes,
                     onExplore = {
-                        navigateTo(Routes.EXHIBITIONS)
+                        navigateTo(Routes.EXPLORE)
+                    },
+                    onCategoryClick = { nombre ->
+                        categoriaSeleccionada = nombre
+                        navigateTo(Routes.EXPLORE)
+                    },
+                    onOpenObra = { id ->
+                        openObra(id)
+                    },
+                    onViewBooking = {
+                        navigateTo(Routes.BOOKING)
                     }
                 )
             }
 
-            // PANTALLA 2: EXHIBICIONES
-
-            composable(Routes.EXHIBITIONS) {
-                ExhibicionesScreen(
+            // PANTALLA 2: EXPLORAR (búsqueda + filtro por categoría)
+            composable(Routes.EXPLORE) {
+                ExplorarScreen(
                     searchQuery = searchQuery,
                     onSearchChange = { newText ->
                         searchQuery = newText
                     },
-                    exhibiciones = filteredExhibiciones,
-                    cartQuantities = cartQuantities,
-                    onIncrease = { id ->
-                        increaseQuantity(id)
+                    categories = categories,
+                    categoriaSeleccionada = categoriaSeleccionada,
+                    onCategorySelect = { nombre ->
+                        categoriaSeleccionada = nombre
                     },
-                    onDecrease = { id ->
-                        decreaseQuantity(id)
+                    obras = obrasFiltradas,
+                    favoritos = favoritos,
+                    onToggleFavorite = { id ->
+                        toggleFavorito(id)
+                    },
+                    onOpenObra = { id ->
+                        openObra(id)
                     }
                 )
             }
 
-            // PANTALLA 3: MI VISITA
-
-            composable(Routes.VISIT) {
-                MiVisitaScreen(
-                    exhibiciones = exhibiciones,
-                    cartQuantities = cartQuantities,
-                    onIncrease = { id ->
-                        increaseQuantity(id)
+            // PANTALLA 3: FAVORITAS
+            composable(Routes.FAVORITES) {
+                FavoritasScreen(
+                    obras = obrasFavoritas,
+                    onToggleFavorite = { id ->
+                        toggleFavorito(id)
                     },
-                    onDecrease = { id ->
-                        decreaseQuantity(id)
+                    onOpenObra = { id ->
+                        openObra(id)
                     },
                     onExplore = {
-                        navigateTo(Routes.EXHIBITIONS)
+                        navigateTo(Routes.EXPLORE)
+                    }
+                )
+            }
+
+            // PANTALLA 4: RESERVAR
+            composable(Routes.BOOKING) {
+                ReservarScreen(
+                    horarios = horarios,
+                    horarioSeleccionado = horarioSeleccionado,
+                    visitantes = visitantes,
+                    reservaConfirmada = reservaConfirmada,
+                    onSelectHorario = { hora ->
+                        seleccionarHorario(hora)
+                    },
+                    onIncrease = {
+                        aumentarVisitantes()
+                    },
+                    onDecrease = {
+                        disminuirVisitantes()
+                    },
+                    onConfirm = {
+                        reservaConfirmada = true
+                    },
+                    onCancel = {
+                        cancelarReserva()
+                    }
+                )
+            }
+
+            // PANTALLA 5: FICHA DE LA OBRA
+            composable(Routes.DETAIL) {
+                val obra = obras.find { it.id == obraSeleccionadaId }
+
+                DetalleObraScreen(
+                    obra = obra,
+                    isFavorite = obra != null && obra.id in favoritos,
+                    onToggleFavorite = {
+                        if (obra != null) {
+                            toggleFavorito(obra.id)
+                        }
+                    },
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onReservar = {
+                        navigateTo(Routes.BOOKING)
                     }
                 )
             }
@@ -387,8 +551,14 @@ fun MuseoApp() {
 @Composable
 fun HomeScreen(
     categories: List<Category>,
-    destacadas: List<Exhibicion>,
-    onExplore: () -> Unit
+    obras: List<Obra>,
+    obraDelDia: Obra,
+    horarioReservado: String?,
+    visitantes: Int,
+    onExplore: () -> Unit,
+    onCategoryClick: (String) -> Unit,
+    onOpenObra: (Int) -> Unit,
+    onViewBooking: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -401,9 +571,33 @@ fun HomeScreen(
 
         HeroBanner(onExplore = onExplore)
 
+        // Si hay reserva confirmada, se muestra aquí
+        if (horarioReservado != null) {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            ReservaBanner(
+                hora = horarioReservado,
+                visitantes = visitantes,
+                onClick = onViewBooking
+            )
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
-        SectionTitle("Reinos del saber")
+        SectionTitle("Curiosidad del día")
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        CuriosidadCard(
+            obra = obraDelDia,
+            onOpen = {
+                onOpenObra(obraDelDia.id)
+            }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        SectionTitle("Descubre por categoría")
 
         Spacer(modifier = Modifier.height(10.dp))
 
@@ -411,7 +605,12 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(categories) { category ->
-                CategoryBadge(category = category)
+                CategoryBadge(
+                    category = category,
+                    onClick = {
+                        onCategoryClick(category.name)
+                    }
+                )
             }
         }
 
@@ -421,15 +620,20 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        SectionTitle("Reliquias más veneradas")
+        SectionTitle("Obras para descubrir")
 
         Spacer(modifier = Modifier.height(10.dp))
 
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(destacadas) { exhibicion ->
-                FeaturedCard(exhibicion = exhibicion)
+            items(obras) { obra ->
+                FeaturedCard(
+                    obra = obra,
+                    onClick = {
+                        onOpenObra(obra.id)
+                    }
+                )
             }
         }
 
@@ -438,13 +642,16 @@ fun HomeScreen(
 }
 
 @Composable
-fun ExhibicionesScreen(
+fun ExplorarScreen(
     searchQuery: String,
     onSearchChange: (String) -> Unit,
-    exhibiciones: List<Exhibicion>,
-    cartQuantities: Map<Int, Int>,
-    onIncrease: (Int) -> Unit,
-    onDecrease: (Int) -> Unit
+    categories: List<Category>,
+    categoriaSeleccionada: String?,
+    onCategorySelect: (String?) -> Unit,
+    obras: List<Obra>,
+    favoritos: Set<Int>,
+    onToggleFavorite: (Int) -> Unit,
+    onOpenObra: (Int) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -454,10 +661,10 @@ fun ExhibicionesScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        SectionTitle("Galería de reliquias")
+        SectionTitle("Explora las obras")
 
         Text(
-            text = "Explora cada sala y reserva tu entrada",
+            text = "Descubre por título, autor o categoría",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -467,35 +674,63 @@ fun ExhibicionesScreen(
         OutlinedTextField(
             value = searchQuery,
             onValueChange = onSearchChange,
-            label = { Text("Buscar exhibiciones") },
+            label = { Text("Buscar por obra o autor") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Filtro por categorías
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            item {
+                CategoryBadge(
+                    category = Category("✦", "Todas"),
+                    selected = categoriaSeleccionada == null,
+                    onClick = {
+                        onCategorySelect(null)
+                    }
+                )
+            }
+
+            items(categories) { category ->
+                val selected = categoriaSeleccionada == category.name
+
+                CategoryBadge(
+                    category = category,
+                    selected = selected,
+                    onClick = {
+                        // Si ya estaba seleccionada, se quita el filtro
+                        onCategorySelect(if (selected) null else category.name)
+                    }
+                )
+            }
+        }
 
         LazyColumn(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            if (exhibiciones.isEmpty()) {
+            if (obras.isEmpty()) {
                 item {
                     Text(
-                        text = "Ninguna reliquia responde a tu búsqueda",
+                        text = "Ninguna obra responde a tu búsqueda",
                         style = MaterialTheme.typography.bodyLarge
                     )
                 }
             } else {
-                items(exhibiciones) { exhibicion ->
-                    val quantity = cartQuantities[exhibicion.id] ?: 0
-
-                    ExhibicionCard(
-                        exhibicion = exhibicion,
-                        quantity = quantity,
-                        onIncrease = {
-                            onIncrease(exhibicion.id)
+                items(obras) { obra ->
+                    ObraCard(
+                        obra = obra,
+                        isFavorite = obra.id in favoritos,
+                        onToggleFavorite = {
+                            onToggleFavorite(obra.id)
                         },
-                        onDecrease = {
-                            onDecrease(exhibicion.id)
+                        onOpen = {
+                            onOpenObra(obra.id)
                         }
                     )
                 }
@@ -505,17 +740,12 @@ fun ExhibicionesScreen(
 }
 
 @Composable
-fun MiVisitaScreen(
-    exhibiciones: List<Exhibicion>,
-    cartQuantities: Map<Int, Int>,
-    onIncrease: (Int) -> Unit,
-    onDecrease: (Int) -> Unit,
+fun FavoritasScreen(
+    obras: List<Obra>,
+    onToggleFavorite: (Int) -> Unit,
+    onOpenObra: (Int) -> Unit,
     onExplore: () -> Unit
 ) {
-    val seleccionadas = exhibiciones.filter { exhibicion ->
-        cartQuantities.containsKey(exhibicion.id)
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -524,19 +754,18 @@ fun MiVisitaScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        SectionTitle("Mi visita")
+        SectionTitle("Reliquias favoritas")
 
         Text(
-            text = "Tu ruta por el santuario",
+            text = "Las obras que quieres volver a ver",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (seleccionadas.isEmpty()) {
+        if (obras.isEmpty()) {
 
-            // Estado vacío
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -554,76 +783,313 @@ fun MiVisitaScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "\uD83E\uDDED",
+                        text = "\uD83D\uDC8E",
                         style = MaterialTheme.typography.headlineSmall
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Tu ruta está vacía",
+                        text = "Aún no tienes favoritas",
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(
-                        text = "Agrega exhibiciones para planear tu recorrido.",
+                        text = "Toca el ♡ en una obra para guardarla aquí.",
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(onClick = onExplore) {
-                        Text("Ver exhibiciones")
+                        Text("Explorar obras")
                     }
                 }
             }
 
         } else {
 
-            // Resumen de la visita
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(obras) { obra ->
+                    ObraCard(
+                        obra = obra,
+                        isFavorite = true,
+                        onToggleFavorite = {
+                            onToggleFavorite(obra.id)
+                        },
+                        onOpen = {
+                            onOpenObra(obra.id)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ReservarScreen(
+    horarios: List<Horario>,
+    horarioSeleccionado: String?,
+    visitantes: Int,
+    reservaConfirmada: Boolean,
+    onSelectHorario: (String) -> Unit,
+    onIncrease: () -> Unit,
+    onDecrease: () -> Unit,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit
+) {
+    val cuposMaximos = horarios.find { it.hora == horarioSeleccionado }?.cupos
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+
+        item {
+            SectionTitle("Reserva tu visita")
+            Text(
+                text = "Elige un horario y cuántas personas asistirán",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        if (reservaConfirmada) {
+
+            item {
+                TicketCard(
+                    hora = horarioSeleccionado ?: "",
+                    visitantes = visitantes
+                )
+            }
+
+            item {
+                OutlinedButton(
+                    onClick = onCancel,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Cancelar reserva")
+                }
+            }
+
+        } else {
+
+            items(horarios) { horario ->
+                HorarioCard(
+                    horario = horario,
+                    selected = horario.hora == horarioSeleccionado,
+                    onClick = {
+                        onSelectHorario(horario.hora)
+                    }
+                )
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Visitantes",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                text = if (cuposMaximos != null) {
+                                    "Máximo $cuposMaximos en este horario"
+                                } else {
+                                    "Elige primero un horario"
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        QuantitySelector(
+                            quantity = visitantes,
+                            onIncrease = onIncrease,
+                            onDecrease = onDecrease
+                        )
+                    }
+                }
+            }
+
+            item {
+                Button(
+                    onClick = onConfirm,
+                    enabled = horarioSeleccionado != null,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Confirmar reserva")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DetalleObraScreen(
+    obra: Obra?,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
+    onBack: () -> Unit,
+    onReservar: () -> Unit
+) {
+    if (obra == null) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            Text("No se encontró la obra")
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedButton(onClick = onBack) {
+                Text("← Volver")
+            }
+        }
+    } else {
+        val shape = RoundedCornerShape(16.dp)
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+        ) {
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(onClick = onBack) {
+                    Text("← Volver")
+                }
+
+                FavoriteButton(
+                    isFavorite = isFavorite,
+                    onToggle = onToggleFavorite
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Fotografía de la obra
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(shape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .border(
+                        1.dp,
+                        MaterialTheme.colorScheme.secondary,
+                        shape
+                    )
+                    .padding(8.dp)
+            ) {
+                Image(
+                    painter = painterResource(id = obra.imagen),
+                    contentDescription = obra.titulo,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = obra.titulo,
+                style = MaterialTheme.typography.headlineSmall
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Ficha técnica
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
                 ),
                 border = BorderStroke(
                     1.dp,
                     MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f)
                 )
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    InfoRow(label = "Autor", value = obra.autor)
+                    InfoRow(label = "Época", value = obra.epoca)
+                    InfoRow(label = "Técnica", value = obra.tecnica)
+                    InfoRow(label = "Categoría", value = obra.categoria)
+                    InfoRow(label = "Ubicación", value = obra.sala)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            SectionTitle("Contexto histórico")
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = obra.contexto,
+                style = MaterialTheme.typography.bodyLarge
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Curiosidad
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Exhibiciones: ${seleccionadas.size}",
+                        text = "✦ ¿Sabías que...?",
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
                     )
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Entradas: ${cartQuantities.values.sum()}",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.secondary
+                        text = obra.curiosidad,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
                     )
                 }
             }
 
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = onReservar,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                items(seleccionadas) { exhibicion ->
-                    VisitaItem(
-                        exhibicion = exhibicion,
-                        quantity = cartQuantities[exhibicion.id] ?: 0,
-                        onIncrease = {
-                            onIncrease(exhibicion.id)
-                        },
-                        onDecrease = {
-                            onDecrease(exhibicion.id)
-                        }
-                    )
-                }
+                Text("Reservar mi visita")
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
@@ -677,7 +1143,7 @@ fun HeroBanner(onExplore: () -> Unit) {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Descubre las reliquias del Caribe",
+                text = "Tu guía mística por el museo",
                 style = MaterialTheme.typography.headlineSmall,
                 color = MistText,
                 textAlign = TextAlign.Center
@@ -686,7 +1152,7 @@ fun HeroBanner(onExplore: () -> Unit) {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Un santuario de historia, arte y naturaleza te espera.",
+                text = "Descubre cada obra, conoce su historia y planea tu recorrido.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MistText,
                 textAlign = TextAlign.Center
@@ -695,7 +1161,7 @@ fun HeroBanner(onExplore: () -> Unit) {
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(onClick = onExplore) {
-                Text("Explorar exhibiciones")
+                Text("Explorar obras")
             }
         }
     }
@@ -734,26 +1200,59 @@ fun QuantitySelector(
     }
 }
 
-/*
-Si la cantidad es 0, Muestra agregar
-Al presionar agregar, la cantidad pasa a 1
-Cuando la cantidad es mayor que 0, aparece - y +
-Al presionar +, la cantidad aumenta
-Al presionar -, la cantidad disminuye
-Cuando llega a 0, vuelve a aparecer agregar
-En la barra inferior se ve la suma de las entradas de todas las exhibiciones
- */
+@Composable
+fun FavoriteButton(
+    isFavorite: Boolean,
+    onToggle: () -> Unit
+) {
+    OutlinedButton(
+        onClick = onToggle,
+        contentPadding = PaddingValues(all = 0.dp),
+        modifier = Modifier.size(40.dp)
+    ) {
+        Text(
+            text = if (isFavorite) "♥" else "♡",
+            color = if (isFavorite) {
+                MaterialTheme.colorScheme.secondary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
+        )
+    }
+}
 
 @Composable
-fun ExhibicionCard(
-    exhibicion: Exhibicion,
-    quantity: Int,
-    onIncrease: () -> Unit,
-    onDecrease: () -> Unit,
-) {
+fun InfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.width(88.dp),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.secondary
+        )
+        Text(
+            text = value,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
 
+@Composable
+fun ObraCard(
+    obra: Obra,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
+    onOpen: () -> Unit
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         ),
@@ -768,16 +1267,14 @@ fun ExhibicionCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(140.dp)
+                    .height(160.dp)
             ) {
                 Image(
-                    painter = painterResource(
-                        id = exhibicion.imagen
-                    ),
-                    contentDescription = exhibicion.name,
+                    painter = painterResource(id = obra.imagen),
+                    contentDescription = obra.titulo,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(140.dp),
+                        .height(160.dp),
                     contentScale = ContentScale.Fit
                 )
 
@@ -790,7 +1287,7 @@ fun ExhibicionCard(
                     )
                 ) {
                     Text(
-                        text = "Nuevo",
+                        text = obra.categoria,
                         modifier = Modifier.padding(
                             horizontal = 8.dp,
                             vertical = 4.dp
@@ -804,17 +1301,18 @@ fun ExhibicionCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = exhibicion.name,
+                text = obra.titulo,
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                text = exhibicion.description,
-                style = MaterialTheme.typography.bodyMedium
+                text = obra.autor,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
             )
             Text(
-                text = "⭐ ${exhibicion.rating}",
+                text = obra.epoca,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.secondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -825,20 +1323,23 @@ fun ExhibicionCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "✦ ${exhibicion.sala}",
+                    text = "✦ ${obra.sala}",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.secondary
                 )
-                if (quantity == 0) {
-                    Button(onClick = onIncrease) {
-                        Text("Agregar")
-                    }
-                } else {
-                    QuantitySelector(
-                        quantity = quantity,
-                        onIncrease = onIncrease,
-                        onDecrease = onDecrease
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FavoriteButton(
+                        isFavorite = isFavorite,
+                        onToggle = onToggleFavorite
                     )
+
+                    Button(onClick = onOpen) {
+                        Text("Ver ficha")
+                    }
                 }
             }
         }
@@ -846,64 +1347,14 @@ fun ExhibicionCard(
 }
 
 @Composable
-fun VisitaItem(
-    exhibicion: Exhibicion,
-    quantity: Int,
-    onIncrease: () -> Unit,
-    onDecrease: () -> Unit
+fun FeaturedCard(
+    obra: Obra,
+    onClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        ),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f)
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Image(
-                painter = painterResource(id = exhibicion.imagen),
-                contentDescription = exhibicion.name,
-                modifier = Modifier.size(64.dp),
-                contentScale = ContentScale.Fit
-            )
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = exhibicion.name,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = "✦ ${exhibicion.sala}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            QuantitySelector(
-                quantity = quantity,
-                onIncrease = onIncrease,
-                onDecrease = onDecrease
-            )
-        }
-    }
-}
-
-@Composable
-fun FeaturedCard(exhibicion: Exhibicion) {
-    Card(
-        modifier = Modifier.width(220.dp),
+        modifier = Modifier
+            .width(220.dp)
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         ),
@@ -914,47 +1365,93 @@ fun FeaturedCard(exhibicion: Exhibicion) {
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Image(
-                painter = painterResource(id = exhibicion.imagen),
-                contentDescription = exhibicion.name,
+                painter = painterResource(id = obra.imagen),
+                contentDescription = obra.titulo,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(110.dp),
+                    .height(120.dp),
                 contentScale = ContentScale.Fit
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = exhibicion.name,
+                text = obra.titulo,
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 2
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "✦ ${exhibicion.sala}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = "⭐ ${exhibicion.rating}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.secondary
-                )
+            Text(
+                text = obra.autor,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1
+            )
+
+            Text(
+                text = "✦ ${obra.sala}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.secondary
+            )
+        }
+    }
+}
+
+@Composable
+fun CuriosidadCard(
+    obra: Obra,
+    onOpen: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "✦ ${obra.titulo}",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onTertiaryContainer
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = obra.curiosidad,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onTertiaryContainer
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(onClick = onOpen) {
+                Text("Ver ficha completa")
             }
         }
     }
 }
 
 @Composable
-fun CategoryBadge(category: Category) {
+fun CategoryBadge(
+    category: Category,
+    selected: Boolean = false,
+    onClick: () -> Unit = {}
+) {
     Card(
+        modifier = Modifier.clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.secondaryContainer
+            } else {
+                MaterialTheme.colorScheme.primaryContainer
+            }
+        ),
+        border = if (selected) {
+            BorderStroke(1.dp, MaterialTheme.colorScheme.secondary)
+        } else {
+            null
+        }
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -969,7 +1466,154 @@ fun CategoryBadge(category: Category) {
             Text(
                 text = category.name,
                 style = MaterialTheme.typography.labelLarge,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.onSecondaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun HorarioCard(
+    horario: Horario,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val agotado = horario.cupos == 0
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = !agotado, onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            }
+        ),
+        border = BorderStroke(
+            if (selected) 2.dp else 1.dp,
+            MaterialTheme.colorScheme.secondary.copy(
+                alpha = if (selected) 1f else 0.5f
+            )
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "\uD83D\uDD52 ${horario.hora}",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Text(
+                text = if (agotado) "Agotado" else "${horario.cupos} cupos",
+                style = MaterialTheme.typography.labelLarge,
+                color = if (agotado) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.tertiary
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun TicketCard(
+    hora: String,
+    visitantes: Int
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        border = BorderStroke(
+            2.dp,
+            MaterialTheme.colorScheme.secondary
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "✦ Reserva confirmada ✦",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.secondary
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Horario: $hora",
+                style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+
+            Text(
+                text = "Visitantes: $visitantes",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Presenta este pase en la entrada del museo.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+fun ReservaBanner(
+    hora: String,
+    visitantes: Int,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.secondary
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "\uD83C\uDF9F\uFE0F Tu visita: $hora",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Text(
+                text = "$visitantes pers.",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.secondary
             )
         }
     }
