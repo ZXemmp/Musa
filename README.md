@@ -98,21 +98,8 @@ app/src/main/java/com/example/myapplication/
 
 No requiere base de datos, API ni cuenta de usuario: todos los datos son locales.
 
-## 9. Créditos de imágenes
+## 9. Autor
 
-| Archivo | Obra | Fuente y licencia |
-|---|---|---|
-| `noche_estrellada.jpg` | La noche estrellada | _Wikimedia Commons · completar_ |
-| `gioconda.jpg` | La Gioconda | _Wikimedia Commons · completar_ |
-| `el_pensador.jpg` | El pensador | _Wikimedia Commons · completar_ |
-| `venus_de_milo.jpg` | Venus de Milo | _Wikimedia Commons · completar_ |
-| `mascara_tutankamon.jpg` | Máscara de Tutankamón | _Wikimedia Commons · completar_ |
-| `poporo_quimbaya.jpg` | Poporo Quimbaya | _Wikimedia Commons · completar_ |
-| `marimonda.jpg` | Marimonda del Carnaval | _Wikimedia Commons · completar_ |
-| `sombrero_vueltiao.jpg` | Sombrero vueltiao | _Wikimedia Commons · completar_ |
-
-## 10. Autor
-
-- **Nombre:** _completar_
-- **Asignatura:** Aplicativos Móviles
+- **Nombre:** Emmanuel Parra Ocampo
+- **Asignatura:** Desarrollo de Aplicativos Móviles
 - **Tecnología:** Kotlin y Jetpack Compose
