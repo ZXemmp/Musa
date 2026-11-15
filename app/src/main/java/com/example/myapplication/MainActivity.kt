@@ -5,7 +5,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.annotation.DrawableRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -65,6 +64,10 @@ import androidx.navigation.compose.rememberNavController
 import com.example.myapplication.ui.theme.MistText
 import com.example.myapplication.ui.theme.MyApplicationTheme
 import com.example.myapplication.ui.theme.SheikahGradient
+import com.example.myapplication.model.Category
+import com.example.myapplication.model.Horario
+import com.example.myapplication.model.Obra
+import com.example.myapplication.data.MuseumData
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -83,45 +86,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
-// =====================================================
-//  MODELOS DE DATOS
-// =====================================================
-
-// Una obra del museo con toda la información para acompañar al visitante
-data class Obra(
-    @DrawableRes
-    val imagen: Int,
-    val titulo: String,
-    val autor: String,
-    val epoca: String,
-    val tecnica: String,
-    val categoria: String,
-    val contexto: String,
-    val curiosidad: String,
-    val sala: String,
-    val id: Int
-)
-
-data class Category(
-    val emoji: String,
-    val name: String
-)
-
-// Un turno de visita con cupos disponibles
-data class Horario(
-    val hora: String,
-    val cupos: Int
-)
-
-object Routes {
-    const val HOME = "inicio"
-    const val EXPLORE = "explorar"
-    const val FAVORITES = "favoritas"
-    const val BOOKING = "reservar"
-    const val DETAIL = "detalle"
-}
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -244,21 +208,8 @@ fun MuseoApp() {
         )
     )
 
-    val categories = listOf(
-        Category("\uD83C\uDFA8", "Pintura"),
-        Category("\uD83D\uDDFF", "Escultura"),
-        Category("\uD83C\uDFFA", "Arqueología"),
-        Category("\uD83C\uDFAD", "Cultura popular")
-    )
-
-    val horarios = listOf(
-        Horario("9:00 a. m.", 12),
-        Horario("10:30 a. m.", 8),
-        Horario("12:00 m.", 0),
-        Horario("2:00 p. m.", 15),
-        Horario("3:30 p. m.", 6),
-        Horario("5:00 p. m.", 10)
-    )
+    val categories = MuseumData.categories
+    val horarios = MuseumData.schedules
 
     // Curiosidad que se muestra en el inicio
     val obraDelDia = remember { obras.random() }
