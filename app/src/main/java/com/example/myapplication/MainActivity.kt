@@ -44,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,6 +62,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.myapplication.ui.theme.MistText
 import com.example.myapplication.ui.theme.MyApplicationTheme
 import com.example.myapplication.ui.theme.SheikahGradient
@@ -68,6 +70,8 @@ import com.example.myapplication.model.Category
 import com.example.myapplication.model.Horario
 import com.example.myapplication.model.Obra
 import com.example.myapplication.data.MuseumData
+import com.example.myapplication.data.local.ReservaEntity
+import com.example.myapplication.viewmodel.MuseoViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,6 +95,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MuseoApp() {
 
+    val museoViewModel: MuseoViewModel = viewModel()
+    val favoritos by museoViewModel.favoriteIds.collectAsState()
+    val reservas by museoViewModel.reservations.collectAsState()
+
     // ---------- ESTADO ----------
 
     var searchQuery by remember {
@@ -103,10 +111,6 @@ fun MuseoApp() {
     }
 
     // ids de las obras marcadas como favoritas
-    var favoritos by remember {
-        mutableStateOf<Set<Int>>(emptySet())
-    }
-
     // obra que se está viendo en la pantalla de detalle
     var obraSeleccionadaId by remember {
         mutableStateOf<Int?>(null)
@@ -124,6 +128,11 @@ fun MuseoApp() {
     var reservaConfirmada by remember {
         mutableStateOf(false)
     }
+
+    val reservaActiva = reservas.firstOrNull { it.estado == "CONFIRMADA" }
+    val tieneReservaActiva = reservaConfirmada || reservaActiva != null
+    val horarioActivo = horarioSeleccionado ?: reservaActiva?.horario
+    val visitantesActivos = if (reservaConfirmada) visitantes else reservaActiva?.visitantes ?: visitantes
 
     // ---------- NAVEGACIÓN ----------
 
@@ -257,25 +266,28 @@ fun MuseoApp() {
     }
 
     fun toggleFavorito(obraId: Int) {
-        favoritos = if (obraId in favoritos) {
-            favoritos - obraId
-        } else {
-            favoritos + obraId
-        }
+        museoViewModel.toggleFavorite(obraId)
     }
 
     fun seleccionarHorario(hora: String) {
         horarioSeleccionado = hora
 
         // Si ya había más visitantes que cupos, se ajusta
-        val cupos = horarios.first { it.hora == hora }.cupos
+        val cupos = horarios.first { it.hora == hora }.cupos - reservas
+            .filter { it.estado == "CONFIRMADA" && it.horario == hora }
+            .sumOf { it.visitantes }
         if (visitantes > cupos) {
-            visitantes = cupos
+            visitantes = cupos.coerceAtLeast(1)
         }
     }
 
     fun aumentarVisitantes() {
-        val cupos = horarios.find { it.hora == horarioSeleccionado }?.cupos ?: 0
+        val hora = horarioSeleccionado
+        val cuposBase = horarios.find { it.hora == hora }?.cupos ?: 0
+        val cuposReservados = reservas
+            .filter { it.estado == "CONFIRMADA" && it.horario == hora }
+            .sumOf { it.visitantes }
+        val cupos = cuposBase - cuposReservados
         if (visitantes < cupos) {
             visitantes += 1
         }
@@ -389,8 +401,8 @@ fun MuseoApp() {
                     categories = categories,
                     obras = obras,
                     obraDelDia = obraDelDia,
-                    horarioReservado = if (reservaConfirmada) horarioSeleccionado else null,
-                    visitantes = visitantes,
+                    horarioReservado = if (tieneReservaActiva) horarioActivo else null,
+                    visitantes = visitantesActivos,
                     onExplore = {
                         navigateTo(Routes.EXPLORE)
                     },
@@ -450,9 +462,10 @@ fun MuseoApp() {
             composable(Routes.BOOKING) {
                 ReservarScreen(
                     horarios = horarios,
-                    horarioSeleccionado = horarioSeleccionado,
-                    visitantes = visitantes,
-                    reservaConfirmada = reservaConfirmada,
+                    reservas = reservas,
+                    horarioSeleccionado = horarioActivo,
+                    visitantes = visitantesActivos,
+                    reservaConfirmada = tieneReservaActiva,
                     onSelectHorario = { hora ->
                         seleccionarHorario(hora)
                     },
@@ -464,8 +477,12 @@ fun MuseoApp() {
                     },
                     onConfirm = {
                         reservaConfirmada = true
+                        horarioSeleccionado?.let { horario ->
+                            museoViewModel.addReservation(obraDelDia.id, horario, visitantes)
+                        }
                     },
                     onCancel = {
+                        horarioActivo?.let { museoViewModel.deleteLatestReservation(it) }
                         cancelarReserva()
                     }
                 )
@@ -781,6 +798,7 @@ fun FavoritasScreen(
 @Composable
 fun ReservarScreen(
     horarios: List<Horario>,
+    reservas: List<ReservaEntity>,
     horarioSeleccionado: String?,
     visitantes: Int,
     reservaConfirmada: Boolean,
@@ -790,7 +808,14 @@ fun ReservarScreen(
     onConfirm: () -> Unit,
     onCancel: () -> Unit
 ) {
-    val cuposMaximos = horarios.find { it.hora == horarioSeleccionado }?.cupos
+    val horariosDisponibles = horarios.map { horario ->
+        horario.copy(
+            cupos = (horario.cupos - reservas
+                .filter { it.estado == "CONFIRMADA" && it.horario == horario.hora }
+                .sumOf { it.visitantes }).coerceAtLeast(0)
+        )
+    }
+    val cuposMaximos = horariosDisponibles.find { it.hora == horarioSeleccionado }?.cupos
 
     LazyColumn(
         modifier = Modifier
@@ -829,7 +854,7 @@ fun ReservarScreen(
 
         } else {
 
-            items(horarios) { horario ->
+            items(horariosDisponibles) { horario ->
                 HorarioCard(
                     horario = horario,
                     selected = horario.hora == horarioSeleccionado,
@@ -885,13 +910,14 @@ fun ReservarScreen(
             item {
                 Button(
                     onClick = onConfirm,
-                    enabled = horarioSeleccionado != null,
+                    enabled = horarioSeleccionado != null && (cuposMaximos ?: 0) >= visitantes,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Confirmar reserva")
                 }
             }
         }
+
     }
 }
 
