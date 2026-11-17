@@ -31,6 +31,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -41,6 +42,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -71,7 +73,10 @@ import com.example.myapplication.model.Horario
 import com.example.myapplication.model.Obra
 import com.example.myapplication.data.MuseumData
 import com.example.myapplication.data.local.ReservaEntity
+import com.example.myapplication.data.local.RutaEntity
 import com.example.myapplication.viewmodel.MuseoViewModel
+import com.example.myapplication.ui.components.ArtworkSelectorCard
+import com.example.myapplication.ui.screens.LoginScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,10 +89,24 @@ class MainActivity : ComponentActivity() {
         setContent {
             MyApplicationTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    MuseoApp()
+                    MusaRoot()
                 }
             }
         }
+    }
+}
+
+@Composable
+fun MusaRoot(museoViewModel: MuseoViewModel = viewModel()) {
+    val usuario by museoViewModel.currentUser.collectAsState()
+    if (usuario == null) {
+        LoginScreen(
+            onLogin = museoViewModel::login,
+            onCreateUser = museoViewModel::createUser,
+            onGuest = { museoViewModel.continueAsGuest() }
+        )
+    } else {
+        MuseoApp()
     }
 }
 
@@ -98,6 +117,9 @@ fun MuseoApp() {
     val museoViewModel: MuseoViewModel = viewModel()
     val favoritos by museoViewModel.favoriteIds.collectAsState()
     val reservas by museoViewModel.reservations.collectAsState()
+    val reservasGlobales by museoViewModel.allReservations.collectAsState()
+    val rutas by museoViewModel.routes.collectAsState()
+    val usuario by museoViewModel.currentUser.collectAsState()
 
     // ---------- ESTADO ----------
 
@@ -273,7 +295,7 @@ fun MuseoApp() {
         horarioSeleccionado = hora
 
         // Si ya había más visitantes que cupos, se ajusta
-        val cupos = horarios.first { it.hora == hora }.cupos - reservas
+        val cupos = horarios.first { it.hora == hora }.cupos - reservasGlobales
             .filter { it.estado == "CONFIRMADA" && it.horario == hora }
             .sumOf { it.visitantes }
         if (visitantes > cupos) {
@@ -284,7 +306,7 @@ fun MuseoApp() {
     fun aumentarVisitantes() {
         val hora = horarioSeleccionado
         val cuposBase = horarios.find { it.hora == hora }?.cupos ?: 0
-        val cuposReservados = reservas
+        val cuposReservados = reservasGlobales
             .filter { it.estado == "CONFIRMADA" && it.horario == hora }
             .sumOf { it.visitantes }
         val cupos = cuposBase - cuposReservados
@@ -311,12 +333,15 @@ fun MuseoApp() {
         topBar = {
             TopAppBar(
                 title = {
-                    Text("▲ Musa")
+                    Text("▲ Musa · ${usuario?.nombre ?: ""}")
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.secondary
-                )
+                ),
+                actions = {
+                    TextButton(onClick = museoViewModel::logout) { Text("Salir") }
+                }
             )
         },
         bottomBar = {
@@ -366,6 +391,13 @@ fun MuseoApp() {
                     label = {
                         Text("Favoritas (${favoritos.size})")
                     },
+                    colors = itemColors
+                )
+                NavigationBarItem(
+                    selected = currentRoute == Routes.CURATOR,
+                    onClick = { navigateTo(Routes.CURATOR) },
+                    icon = { Text("✦") },
+                    label = { Text("Mi ruta") },
                     colors = itemColors
                 )
                 NavigationBarItem(
@@ -419,6 +451,19 @@ fun MuseoApp() {
                 )
             }
 
+            composable(Routes.CURATOR) {
+                MiRutaScreen(
+                    obras = obras,
+                    favoritos = favoritos,
+                    reservas = reservas,
+                    rutas = rutas,
+                    onCreate = museoViewModel::addRoute,
+                    onUpdate = museoViewModel::updateRoute,
+                    onArchive = museoViewModel::archiveRoute,
+                    onDelete = museoViewModel::deleteRoute
+                )
+            }
+
             // PANTALLA 2: EXPLORAR (búsqueda + filtro por categoría)
             composable(Routes.EXPLORE) {
                 ExplorarScreen(
@@ -462,7 +507,7 @@ fun MuseoApp() {
             composable(Routes.BOOKING) {
                 ReservarScreen(
                     horarios = horarios,
-                    reservas = reservas,
+                    reservas = reservasGlobales,
                     horarioSeleccionado = horarioActivo,
                     visitantes = visitantesActivos,
                     reservaConfirmada = tieneReservaActiva,
@@ -484,11 +529,11 @@ fun MuseoApp() {
                     onCancel = {
                         horarioActivo?.let { museoViewModel.deleteLatestReservation(it) }
                         cancelarReserva()
-                    }
+                    },
                 )
             }
 
-            // PANTALLA 5: FICHA DE LA OBRA
+            // PANTALLA 6: FICHA DE LA OBRA
             composable(Routes.DETAIL) {
                 val obra = obras.find { it.id == obraSeleccionadaId }
 
@@ -806,7 +851,7 @@ fun ReservarScreen(
     onIncrease: () -> Unit,
     onDecrease: () -> Unit,
     onConfirm: () -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
 ) {
     val horariosDisponibles = horarios.map { horario ->
         horario.copy(
@@ -916,8 +961,442 @@ fun ReservarScreen(
                     Text("Confirmar reserva")
                 }
             }
+
         }
 
+    }
+}
+
+@Composable
+fun ReservasScreen(
+    horarios: List<Horario>,
+    reservas: List<ReservaEntity>,
+    onCreate: (String, Int) -> Unit,
+    onUpdate: (Long, String, Int) -> Unit,
+    onCancel: (Long) -> Unit,
+    onDelete: (Long) -> Unit
+) {
+    var search by remember { mutableStateOf("") }
+    var onlyActive by remember { mutableStateOf(true) }
+    var editingId by remember { mutableStateOf<Long?>(null) }
+    var selectedHour by remember { mutableStateOf(horarios.firstOrNull()?.hora ?: "") }
+    var visitorsText by remember { mutableStateOf("1") }
+
+    val activeCount = reservas.count { it.estado == "CONFIRMADA" }
+    val cancelledCount = reservas.count { it.estado == "CANCELADA" }
+    val visitorsTotal = reservas.filter { it.estado == "CONFIRMADA" }.sumOf { it.visitantes }
+    val visibleReservations = reservas.filter { reservation ->
+        (!onlyActive || reservation.estado == "CONFIRMADA") &&
+                (search.isBlank() || reservation.horario.contains(search, ignoreCase = true))
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            SectionTitle("Mis reservas")
+            Text(
+                "Consulta y administra tus visitas guardadas en el museo.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("$activeCount activas", style = MaterialTheme.typography.titleMedium)
+                    Text("$visitorsTotal visitantes", style = MaterialTheme.typography.bodySmall)
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("$cancelledCount canceladas", style = MaterialTheme.typography.titleMedium)
+                    Text("${reservas.size} registros", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+
+        item {
+            OutlinedTextField(
+                value = search,
+                onValueChange = { search = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Buscar por horario") },
+                singleLine = true
+            )
+        }
+
+        item {
+            OutlinedButton(onClick = { onlyActive = !onlyActive }) {
+                Text(if (onlyActive) "Mostrando activas · Ver historial" else "Mostrando historial · Ver activas")
+            }
+        }
+
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        if (editingId == null) "Registrar una visita" else "Editar reserva",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(horarios) { horario ->
+                            OutlinedButton(onClick = { selectedHour = horario.hora }) {
+                                Text(if (selectedHour == horario.hora) "✓ ${horario.hora}" else horario.hora)
+                            }
+                        }
+                    }
+                    OutlinedTextField(
+                        value = visitorsText,
+                        onValueChange = { value -> if (value.all { it.isDigit() } && value.length <= 2) visitorsText = value },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Cantidad de visitantes") },
+                        singleLine = true
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                val visitors = visitorsText.toIntOrNull() ?: 0
+                                if (selectedHour.isNotBlank() && visitors > 0) {
+                                    editingId?.let { onUpdate(it, selectedHour, visitors) }
+                                        ?: onCreate(selectedHour, visitors)
+                                    editingId = null
+                                    visitorsText = "1"
+                                }
+                            },
+                            enabled = visitorsText.toIntOrNull()?.let { it > 0 } == true
+                        ) {
+                            Text(if (editingId == null) "Registrar" else "Guardar cambios")
+                        }
+                        if (editingId != null) {
+                            OutlinedButton(onClick = { editingId = null; visitorsText = "1" }) {
+                                Text("Cancelar edición")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (visibleReservations.isEmpty()) {
+            item { Text("No hay reservas que coincidan con el filtro.") }
+        } else {
+            items(visibleReservations) { reservation ->
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Visita para ${reservation.visitantes} visitante(s)", style = MaterialTheme.typography.titleMedium)
+                        Text("${reservation.horario} · ${reservation.estado}")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (reservation.estado == "CONFIRMADA") {
+                                OutlinedButton(onClick = {
+                                    editingId = reservation.id
+                                    selectedHour = reservation.horario
+                                    visitorsText = reservation.visitantes.toString()
+                                }) { Text("Editar") }
+                                OutlinedButton(onClick = { onCancel(reservation.id) }) { Text("Cancelar") }
+                            }
+                            OutlinedButton(onClick = { onDelete(reservation.id) }) { Text("Eliminar") }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MiRutaScreen(
+    obras: List<Obra>,
+    favoritos: Set<Int>,
+    reservas: List<ReservaEntity>,
+    rutas: List<RutaEntity>,
+    onCreate: (String, String, String) -> Unit,
+    onUpdate: (Long, String, String, String) -> Unit,
+    onArchive: (Long) -> Unit,
+    onDelete: (Long) -> Unit
+) {
+    var nombre by remember { mutableStateOf("") }
+    var modo by remember { mutableStateOf("Esencia") }
+    var selectedIds by remember { mutableStateOf(favoritos) }
+    var editingId by remember { mutableStateOf<Long?>(null) }
+    var query by remember { mutableStateOf("") }
+    var showArchived by remember { mutableStateOf(false) }
+
+    val obrasDisponibles = obras.filter {
+        query.isBlank() || it.titulo.contains(query, true) || it.autor.contains(query, true)
+    }
+    val rutasVisibles = rutas.filter { route ->
+        (showArchived || route.estado == "ACTIVA") &&
+                (query.isBlank() || route.nombre.contains(query, true) || route.modo.contains(query, true))
+    }
+    val activeRoutes = rutas.count { it.estado == "ACTIVA" }
+    val archivedRoutes = rutas.count { it.estado == "ARCHIVADA" }
+    val totalVisits = reservas.count { it.estado == "CONFIRMADA" }
+
+    fun resetForm() {
+        nombre = ""
+        modo = "Esencia"
+        selectedIds = favoritos
+        editingId = null
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            SectionTitle("Mi ruta")
+            Text("Diseña, guarda y transforma tu propio recorrido por Musa.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Card(modifier = Modifier.weight(1f)) { Column(Modifier.padding(12.dp)) { Text("$activeRoutes", style = MaterialTheme.typography.headlineSmall); Text("activas") } }
+                Card(modifier = Modifier.weight(1f)) { Column(Modifier.padding(12.dp)) { Text("$archivedRoutes", style = MaterialTheme.typography.headlineSmall); Text("archivadas") } }
+                Card(modifier = Modifier.weight(1f)) { Column(Modifier.padding(12.dp)) { Text("$totalVisits", style = MaterialTheme.typography.headlineSmall); Text("visitas") } }
+            }
+        }
+        item {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(if (editingId == null) "Crear nueva ruta" else "Editar ruta", style = MaterialTheme.typography.titleMedium)
+                    OutlinedTextField(nombre, { nombre = it }, Modifier.fillMaxWidth(), label = { Text("Nombre de la ruta") }, singleLine = true)
+                    Text("Estilo de recorrido", style = MaterialTheme.typography.labelLarge)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(listOf("Esencia", "Contrastes", "Tiempo")) { option ->
+                            OutlinedButton(onClick = { modo = option }) { Text(if (modo == option) "✓ $option" else option) }
+                        }
+                    }
+                    Text("Obras asociadas: ${selectedIds.size}", style = MaterialTheme.typography.labelLarge)
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        obrasDisponibles.forEach { obra ->
+                            ArtworkSelectorCard(
+                                obra = obra,
+                                selected = obra.id in selectedIds,
+                                onSelectedChange = { checked ->
+                                    selectedIds = if (checked) selectedIds + obra.id else selectedIds - obra.id
+                                }
+                            )
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                val ids = selectedIds.joinToString(",")
+                                if (nombre.isNotBlank() && ids.isNotBlank()) {
+                                    editingId?.let { onUpdate(it, nombre, modo, ids) } ?: onCreate(nombre, modo, ids)
+                                    resetForm()
+                                }
+                            },
+                            enabled = nombre.isNotBlank() && selectedIds.isNotEmpty()
+                        ) { Text(if (editingId == null) "Guardar ruta" else "Guardar cambios") }
+                        if (editingId != null) OutlinedButton(onClick = { resetForm() }) { Text("Cancelar") }
+                    }
+                }
+            }
+        }
+        item {
+            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), label = { Text("Buscar rutas u obras") }, singleLine = true)
+            OutlinedButton(onClick = { showArchived = !showArchived }) {
+                Text(if (showArchived) "Ocultar archivadas" else "Mostrar historial")
+            }
+        }
+        if (rutasVisibles.isEmpty()) {
+            item { Text("Todavía no tienes rutas guardadas.") }
+        } else {
+            items(rutasVisibles) { route ->
+                val routeWorks = route.obraIds.split(",").mapNotNull { id -> obras.find { it.id == id.toIntOrNull() } }
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                            Text(route.nombre, style = MaterialTheme.typography.titleMedium)
+                            Text(route.estado, color = MaterialTheme.colorScheme.secondary)
+                        }
+                        Text("${route.modo} · ${routeWorks.size} obras asociadas")
+                        Text(routeWorks.joinToString(" · ") { it.titulo }, style = MaterialTheme.typography.bodySmall)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (route.estado == "ACTIVA") {
+                                OutlinedButton(onClick = {
+                                    editingId = route.id
+                                    nombre = route.nombre
+                                    modo = route.modo
+                                    selectedIds = route.obraIds.split(",").mapNotNull { it.toIntOrNull() }.toSet()
+                                }) { Text("Editar") }
+                                OutlinedButton(onClick = { onArchive(route.id) }) { Text("Archivar") }
+                            }
+                            OutlinedButton(onClick = { onDelete(route.id) }) { Text("Eliminar") }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CuradorScreen(
+    obras: List<Obra>,
+    favoritos: Set<Int>,
+    reservas: List<ReservaEntity>,
+    onToggleFavorite: (Int) -> Unit
+) {
+    var modo by remember { mutableStateOf("Esencia") }
+    var semilla by remember { mutableStateOf(0) }
+
+    val ruta = remember(modo, semilla, favoritos) {
+        val favoritasPrimero = obras.sortedWith(
+            compareByDescending<Obra> { it.id in favoritos }.thenBy { it.titulo }
+        )
+        val base = when (modo) {
+            "Contrastes" -> favoritasPrimero.sortedBy { it.categoria }
+            "Tiempo" -> favoritasPrimero.sortedBy { it.epoca }
+            else -> favoritasPrimero
+        }
+        base.shuffled(kotlin.random.Random(semilla)).take(4)
+    }
+    val recomendada = ruta.firstOrNull()
+    val visitas = reservas.filter { it.estado == "CONFIRMADA" }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            SectionTitle("Mi recorrido")
+            Text(
+                "Una ruta única creada por Musa a partir de tus favoritos y visitas.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            ) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Tu huella en el museo", style = MaterialTheme.typography.titleMedium)
+                    Text("${favoritos.size} favoritas  ·  ${visitas.size} visitas  ·  ${visitas.sumOf { it.visitantes }} visitantes")
+                    Text("Tu colección personal se convierte en una ruta para recorrer Musa.", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+        item {
+            Text("Diseña tu recorrido", style = MaterialTheme.typography.titleMedium)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(listOf("Esencia", "Contrastes", "Tiempo")) { opcion ->
+                    OutlinedButton(
+                        onClick = { modo = opcion },
+                        colors = if (modo == opcion) {
+                            androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer
+                            )
+                        } else androidx.compose.material3.ButtonDefaults.outlinedButtonColors()
+                    ) {
+                        Text(if (modo == opcion) "✓ $opcion" else opcion)
+                    }
+                }
+            }
+        }
+        item {
+            Button(onClick = { semilla++ }, modifier = Modifier.fillMaxWidth()) {
+                Text("Crear nueva ruta")
+            }
+        }
+        if (recomendada != null) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary)
+                ) {
+                    Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("RECOMENDACIÓN DE MUSA", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
+                        Text(recomendada.titulo, style = MaterialTheme.typography.headlineSmall)
+                        Text("${recomendada.autor} · ${recomendada.sala}")
+                        Text(recomendada.curiosidad, style = MaterialTheme.typography.bodyMedium)
+                        OutlinedButton(onClick = { onToggleFavorite(recomendada.id) }) {
+                            Text(if (recomendada.id in favoritos) "Quitar de favoritas" else "Guardar como favorita")
+                        }
+                    }
+                }
+            }
+            item { SectionTitle("Ruta sugerida") }
+            items(ruta) { obra ->
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("${ruta.indexOf(obra) + 1}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.width(28.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(obra.titulo, style = MaterialTheme.typography.titleSmall)
+                            Text("${obra.categoria} · ${obra.sala}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MuseoInsightsScreen(
+    obras: List<Obra>,
+    favoritos: Set<Int>,
+    reservas: List<ReservaEntity>
+) {
+    val obrasFavoritas = obras.filter { it.id in favoritos }
+    val visitasConfirmadas = reservas.filter { it.estado == "CONFIRMADA" }
+    val totalVisitantes = visitasConfirmadas.sumOf { it.visitantes }
+    val categorias = obrasFavoritas.groupingBy { it.categoria }.eachCount()
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            SectionTitle("Tu recorrido en Musa")
+            Text(
+                "Un resumen de tus descubrimientos y visitas guardado localmente.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Resumen", style = MaterialTheme.typography.titleMedium)
+                    Text("${obrasFavoritas.size} obras favoritas")
+                    Text("${visitasConfirmadas.size} visitas confirmadas")
+                    Text("$totalVisitantes visitantes registrados")
+                }
+            }
+        }
+        if (categorias.isNotEmpty()) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Tus intereses", style = MaterialTheme.typography.titleMedium)
+                        categorias.forEach { (categoria, cantidad) ->
+                            Text("$categoria · $cantidad obra(s)")
+                        }
+                    }
+                }
+            }
+            item { SectionTitle("Obras que quieres volver a ver") }
+            items(obrasFavoritas) { obra ->
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("✦", color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(end = 12.dp))
+                    Column {
+                        Text(obra.titulo, style = MaterialTheme.typography.titleSmall)
+                        Text(obra.autor, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        } else {
+            item { Text("Marca obras como favoritas para construir tu recorrido personalizado.") }
+        }
     }
 }
 

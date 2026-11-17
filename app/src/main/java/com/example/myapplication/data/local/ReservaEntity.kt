@@ -6,6 +6,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "reservas")
 data class ReservaEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val userId: Long,
     val obraId: Int,
     val horario: String,
     val visitantes: Int,
