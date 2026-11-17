@@ -17,20 +17,27 @@ El visitante puede:
 - Leer curiosidades y datos interesantes de cada obra.
 - Guardar sus obras favoritas.
 - Reservar su visita en un horario específico.
+- Crear un perfil, iniciar sesión o ingresar como invitado.
+- Diseñar recorridos personalizados por las obras del museo.
 
 ## 3. Pantallas
 
-La navegación se implementa con **Navigation Compose** (`NavController` y `NavHost`) y una barra inferior de cuatro pestañas, más una ficha de detalle.
+La navegación se implementa con **Navigation Compose** (`NavController` y `NavHost`) y una barra inferior de cinco pestañas, más una ficha de detalle.
 
 | Pantalla | Propósito |
 |---|---|
 | **Inicio** | Bienvenida, curiosidad del día, categorías tocables y carrusel de obras. Muestra la reserva confirmada si existe. |
 | **Explorar** | Lista de obras con buscador por título o autor y filtro por categoría. |
-| **Favoritas** | Obras marcadas con ♥ por el visitante. |
+| **Favoritas** | Obras marcadas con ♥ por el perfil activo. |
+| **Mi ruta** | Creación, consulta, edición, archivado y eliminación de recorridos personalizados. |
 | **Reservar** | Selección de horario con cupos, número de visitantes y pase de confirmación. |
 | **Ficha de la obra** | Fotografía, autor, época, técnica, categoría, ubicación, contexto histórico y curiosidad. |
 
 ## 4. Funcionalidades interactivas
+
+### Perfiles y sesiones
+
+La aplicación permite crear usuarios con nombre, usuario y contraseña, iniciar sesión con credenciales existentes o ingresar como invitado. Favoritos, rutas y reservas se relacionan con el perfil activo mediante `userId`, por lo que cada usuario consulta sus propios datos.
 
 ### Funcionalidad trabajada en clase
 
@@ -42,10 +49,22 @@ La navegación se implementa con **Navigation Compose** (`NavController` y `NavH
 ### Funcionalidades nuevas
 
 **1. Reliquias favoritas.**
-Cada obra tiene un botón ♡ / ♥ que la agrega o la quita de favoritos. El estado se guarda en un conjunto de identificadores. Las obras favoritas aparecen en la pestaña *Favoritas*, y el contador se actualiza en la barra inferior.
+Cada obra tiene un botón ♡ / ♥ que la agrega o la quita de favoritos. El estado se guarda en Room y las obras aparecen en *Favoritas*. El contador se actualiza en la barra inferior.
 
 **2. Filtrar por categorías.**
 Chips seleccionables (Pintura, Escultura, Arqueología y Cultura popular, además de "Todas") filtran las obras por categoría. Se combinan con la búsqueda por texto. Las categorías del *Inicio* también llevan directamente a *Explorar* con el filtro aplicado.
+
+**3. Reservas con cupos globales.**
+
+Las reservas pertenecen a cada usuario, pero los cupos se descuentan globalmente para evitar que dos perfiles ocupen el mismo cupo. Cancelar una reserva libera la disponibilidad.
+
+**4. Mi ruta.**
+
+Permite crear recorridos con nombre, modo (*Esencia*, *Contrastes* o *Tiempo*) y obras asociadas. Las obras se seleccionan en miniCards verticales con imagen, nombre y checkbox. Las rutas se pueden consultar, editar, archivar, buscar y eliminar.
+
+**5. Estadísticas e historial.**
+
+La pestaña *Mi ruta* muestra rutas activas, rutas archivadas y visitas confirmadas. También permite alternar entre rutas activas e historial y buscar por nombre, modo u obra.
 
 ### Extra: reserva por horarios
 
@@ -61,25 +80,41 @@ El visitante elige un horario con cupos disponibles (hay uno agotado), define cu
 |:---:|:---:|:---:|
 | ![Favoritas](docs/screenshots/favoritas.png) | ![Reservar](docs/screenshots/reservar.png) | ![Pase](docs/screenshots/pase.png) |
 
-## 6. Conceptos aplicados
+## 6. Arquitectura y conceptos aplicados
+
+- **MVVM:** la UI observa estados desde `MuseoViewModel`; las operaciones no acceden directamente a Room.
+- **Repository pattern:** `MuseoRepository` centraliza las operaciones de datos.
+- **Room:** entidades, DAO, base de datos y migraciones para usuarios, favoritos, reservas y rutas.
+- **StateFlow y Flow:** observación reactiva de sesión, datos por usuario y cupos globales.
 
 - **Layouts y modificadores:** `Column`, `Row`, `Box`, `Spacer`, `padding`, `fillMaxWidth`, entre otros.
 - **Material 3:** `Scaffold`, `TopAppBar`, `NavigationBar`, `Card`, `Button`, `OutlinedButton`, `OutlinedTextField`.
 - **Listas dinámicas:** `LazyColumn` y `LazyRow`, generadas a partir de colecciones de datos.
-- **Data classes:** `Obra`, `Category` y `Horario`.
-- **Composables reutilizables:** `ObraCard`, `FeaturedCard`, `CategoryBadge`, `QuantitySelector`, `FavoriteButton`, `InfoRow`, `HorarioCard`, entre otros.
-- **Estado y eventos:** `remember` y `mutableStateOf`, con el estado elevado a `MuseoApp` y pasado a cada pantalla mediante parámetros y lambdas.
+- **Data classes:** `Obra`, `Category`, `Horario` y entidades Room.
+- **Composables reutilizables:** `ArtworkSelectorCard`, `ObraCard`, `FeaturedCard`, `CategoryBadge`, `QuantitySelector`, `FavoriteButton`, `InfoRow` y `HorarioCard`.
+- **Estado y eventos:** estado de sesión y datos persistentes en el ViewModel; estado de formulario local en Compose.
 - **Tema personalizado:** `Color.kt`, `Theme.kt` y `Type.kt`.
 
 ## 7. Estructura del proyecto
 
 ```
 app/src/main/java/com/example/myapplication/
-├── MainActivity.kt      # Pantallas, componentes y navegación
-└── ui/theme/
-    ├── Color.kt         # Paleta Sheikah, oro y verde
-    ├── Theme.kt         # Esquemas claro y oscuro de Material 3
-    └── Type.kt          # Tipografía con serifa
+├── MainActivity.kt              # Coordinación de Compose y navegación
+├── Routes.kt                    # Rutas de navegación
+├── model/                       # Modelos de dominio
+├── data/
+│   ├── local/                   # Room: entidades, DAO, base de datos y migraciones
+│   ├── repository/              # Acceso centralizado a datos
+│   └── MuseumData.kt            # Datos iniciales del museo
+├── viewmodel/
+│   └── MuseoViewModel.kt        # Sesión, favoritos, reservas y rutas
+└── ui/
+    ├── components/              # Componentes reutilizables
+    ├── screens/                 # Pantallas desacopladas
+    └── theme/
+        ├── Color.kt             # Paleta Sheikah, oro y verde
+        ├── Theme.kt             # Esquemas claro y oscuro de Material 3
+        └── Type.kt              # Tipografía con serifa
 ```
 
 ## 8. Cómo ejecutar el proyecto
@@ -94,7 +129,15 @@ app/src/main/java/com/example/myapplication/
 5. Selecciona un emulador o conecta un dispositivo Android.
 6. Pulsa **Run ▶**.
 
-No requiere base de datos, API ni cuenta de usuario: todos los datos son locales.
+La aplicación utiliza Room para almacenar usuarios, favoritos, reservas y rutas. No requiere API externa ni conexión a internet para probar las funcionalidades principales.
+
+### Prueba rápida de perfiles
+
+1. Crea el usuario A y guarda una favorita y una ruta.
+2. Cierra sesión desde `Salir`.
+3. Crea el usuario B.
+4. Comprueba que sus favoritos y rutas estén vacíos e independientes.
+5. Reserva un horario con el usuario B y verifica los cupos desde otro perfil.
 
 ## 9. Autor
 
